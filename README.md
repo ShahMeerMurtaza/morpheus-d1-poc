@@ -1,43 +1,42 @@
-# Morpheus D-1 PoC — direct-payment debit/credit asymmetry
+# D-1: Direct payment debit and credit mismatch in LumerinDiamond closeSession
 
-Foundry proof-of-concept for a bug-bounty report against the Morpheus
-LumerinDiamond (`0x6aBE1d282f72B474E54527D93b979A4f64d3030a` on Base).
+## Summary
 
-**Finding (summary):** in `closeSession`, `_rewardUserAfterClose` debits the
-user the FULL uncapped provider reward, while `_rewardProviderAfterClose` →
-`_claimForProvider` credits the provider only up to
-`(stake - limitPeriodEarned)`. The spread is permanently bricked in the
-diamond: never returned to the user, never paid to the provider.
+When a direct payment session is closed, closeSession debits the user the full
+uncapped provider reward, while the provider is credited only up to stake minus
+limitPeriodEarned. The difference stays locked in the diamond contract. It is
+not returned to the user and it is not paid to the provider.
 
-## Run
+## Impact
 
-Requires [Foundry](https://book.getfoundry.sh/). From a clean clone, one command:
+Demonstrated on a Base mainnet fork at block 51840354.
 
-```shell
-forge test
-```
+- Provider reward earned: 1.728 MOR
+- Provider credited: 0.2 MOR, capped at stake minus limitPeriodEarned
+- Value locked in the diamond: 1.528 MOR
+- User permanent shortfall: 1.728 MOR, not recoverable through withdrawUserStakes
 
-The test forks Base mainnet at pinned block **51840354** (see `foundry.toml`)
-and uses only the public `https://mainnet.base.org` RPC endpoint — no API keys.
+## Affected contract
 
-## Expected result
+- LumerinDiamond on Base: 0x6aBE1d282f72B474E54527D93b979A4f64d3030a
+- MOR token on Base: 0x7431aDa8a591C955a994a21710752EF9b882b8e3
 
-```
-[PASS] test_directPayment_debitCreditMismatch()
-```
+## Reproduction
 
-The test opens a direct-payment session (1000 MOR user stake, 2-day session,
-minimum-stake provider), closes it, and asserts:
+Run: forge test
 
-- provider reward earned: **1.728 MOR**
-- provider actually received: **0.2 MOR** (capped at `stake - limitPeriodEarned`)
-- bricked spread: **1.528 MOR**
-- user permanent shortfall: **1.728 MOR**, unrecoverable via `withdrawUserStakes`
+The test forks Base mainnet at pinned block 51840354 through the public Base
+RPC endpoint. No API key is needed. No privileged accounts are used.
 
-No privileged accounts are used anywhere in the test.
+Expected result: test_directPayment_debitCreditMismatch passes.
 
-## Layout
+The test opens a direct payment session with a 1000 MOR user stake and a
+minimum stake provider, closes the session after the session period, then
+checks the provider payout, the locked spread, and the user shortfall stated
+above.
 
-- `test/DirectPaymentMismatch.t.sol` — the PoC test
-- `foundry.toml` — fork config (Base, pinned block 51840354)
-- `lib/forge-std` — vendored dependency
+## Files
+
+- foundry.toml: fork configuration, Base mainnet, pinned block 51840354
+- test directory: DirectPaymentMismatch.t.sol, the proof of concept test
+- lib directory: vendored forge-std dependency
