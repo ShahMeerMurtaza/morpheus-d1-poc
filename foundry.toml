@@ -1,0 +1,11 @@
+[profile.default]
+src = "src"
+test = "test"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.24"
+# Fork config: bare `forge test` forks Base mainnet at the pinned block.
+eth_rpc_url = "https://mainnet.base.org"
+fork_block_number = 51840354
+[rpc_endpoints]
+base = "https://mainnet.base.org"
